@@ -33,6 +33,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
 	class UInputAction* JumpAction;
 
+	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
+	class UInputAction* InteractAction;
 
 public:
 	// Sets default values for this character's properties
@@ -57,7 +59,8 @@ protected:
 
 	void Jump();
 
-	void interact();
+	void InteractWithObject();
+
 
 
 };
