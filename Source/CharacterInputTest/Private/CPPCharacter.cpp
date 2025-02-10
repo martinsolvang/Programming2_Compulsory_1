@@ -68,6 +68,8 @@ void ACPPCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		Input->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACPPCharacter::Look);
 
 		Input->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACPPCharacter::Jump);
+
+		Input->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ACPPCharacter::InteractWithObject);
 	}
 
 }
@@ -111,10 +113,28 @@ void ACPPCharacter::Jump()
 	ACharacter::Jump();
 }
 
-void ACPPCharacter::interact()
+void ACPPCharacter::InteractWithObject()
 {
-	
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Pressed E");
+	FVector Start = RootComponent->GetComponentLocation();
+	FVector End = Start;
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	if (GetWorld()->SweepSingleByChannel(HitResult,Start,End,FQuat::Identity,ECC_Visibility,FCollisionShape::MakeSphere(150),Params))
+	{
+		if (IInteract_Interface* Interact_Interface = Cast<IInteract_Interface>(HitResult.GetActor()))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Interacted with interactable object");
+			Interact_Interface->OnInteract_Implementation();
+		}
+	}
+	DrawDebugSphere(GetWorld(), Start, 150, 32, FColor::Red, false, 3.f, 0, 1);
+		
 }
+
 
 
 
