@@ -124,7 +124,7 @@ void ACPPCharacter::InteractWithObject()
 			Interact_Interface->OnInteract_Implementation();
 		}
 	}
-	DrawDebugSphere(GetWorld(), Start, 150, 32, FColor::Red, false, 3.f, 0, 1);
+	//DrawDebugSphere(GetWorld(), Start, 150, 32, FColor::Red, false, 3.f, 0, 1);
 		
 }
 
