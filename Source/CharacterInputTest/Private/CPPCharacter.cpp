@@ -17,10 +17,12 @@ ACPPCharacter::ACPPCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	//Creates the spring arm and attaches it to the Character root component
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>("SpringArm");
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->bUsePawnControlRotation = true;
 
+	//Creates the camera and attaches it to the spring arm
 	Camera = CreateDefaultSubobject<UCameraComponent>("Camera");
 	Camera->SetupAttachment(SpringArm);
 	
@@ -70,23 +72,27 @@ void ACPPCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 }
 
+//Add movement based on input
 void ACPPCharacter::Move(const FInputActionValue& InputValue)
 {
 	FVector2D InputVector = InputValue.Get<FVector2D>();
 
 	if (IsValid(Controller))
 	{
+		//Get forward and right direction of character
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0,Rotation.Yaw, 0);
 
 		const FVector ForwardRotation = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
+		//Sets the movement values
 		AddMovementInput(ForwardRotation, InputVector.Y);
 		AddMovementInput(RightDirection, InputVector.X);
 	}
 }
 
+//Lets the camera move based on input
 void ACPPCharacter::Look(const FInputActionValue& InputValue)
 {
 	FVector2D InputVector = InputValue.Get<FVector2D>();
@@ -99,6 +105,7 @@ void ACPPCharacter::Look(const FInputActionValue& InputValue)
 
 }
 
+//Calls the jump function based on input
 void ACPPCharacter::Jump()
 {
 	ACharacter::Jump();
