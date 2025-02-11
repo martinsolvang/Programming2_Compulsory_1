@@ -27,6 +27,8 @@ ACPPCharacter::ACPPCharacter()
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
+	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+
 
 }
 
