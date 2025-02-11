@@ -12,6 +12,21 @@ class CHARACTERINPUTTEST_API ACPPInteractableObject : public AActor, public IInt
 {
 	GENERATED_BODY()
 
+	FTimerHandle DestroyTimerHandle;
+	FTimerHandle BounceMoveTimerHandle;
+	float ElapsedTime = 0.0f;
+	float Duration = 0.5f;
+	float BounceHeight = 70.0f;
+
+	bool bShouldMove = false;
+
+	FVector StartLocation;
+	FVector TargetLocation;
+	
+
+	FVector StartSize;
+	FVector TargetSize;
+
 	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "True"))
 	UStaticMeshComponent* StaticMesh;
 	
@@ -23,7 +38,15 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
+	virtual void Tick(float DeltaTime) override;
+
 	virtual void OnInteract_Implementation() override;
+
+	void UpdateMovementAndRotation(float DeltaTime);
+
+	void DestroyObject();
+
+	void IdleMovement(float DeltaTime);
 
 };

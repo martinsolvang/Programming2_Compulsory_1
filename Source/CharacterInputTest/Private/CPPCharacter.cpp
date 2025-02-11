@@ -29,6 +29,8 @@ ACPPCharacter::ACPPCharacter()
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
+	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+
 
 }
 
@@ -38,15 +40,7 @@ void ACPPCharacter::BeginPlay()
 	Super::BeginPlay();
 
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(InputMapping, 0);
-		}
-		
-	}
+	
 }
 
 // Called every frame
@@ -60,7 +54,15 @@ void ACPPCharacter::Tick(float DeltaTime)
 void ACPPCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
 
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(InputMapping, 0);
+		}
+
+	}
 	if (UEnhancedInputComponent* Input = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACPPCharacter::Move);
@@ -131,7 +133,7 @@ void ACPPCharacter::InteractWithObject()
 			Interact_Interface->OnInteract_Implementation();
 		}
 	}
-	DrawDebugSphere(GetWorld(), Start, 150, 32, FColor::Red, false, 3.f, 0, 1);
+	//DrawDebugSphere(GetWorld(), Start, 150, 32, FColor::Red, false, 3.f, 0, 1);
 		
 }
 
