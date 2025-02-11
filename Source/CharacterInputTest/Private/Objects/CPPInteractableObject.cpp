@@ -14,8 +14,10 @@ ACPPInteractableObject::ACPPInteractableObject()
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("Static Mesh");
 	StaticMesh->SetupAttachment(RootComponent);
-	StaticMesh->SetCollisionResponseToChannel(ECC_Pawn,ECR_Ignore);
-	StaticMesh->SetCollisionResponseToChannel(ECC_Camera,ECR_Ignore);
+	//StaticMesh->SetCollisionResponseToChannel(ECC_Pawn,ECR_Ignore);
+	//StaticMesh->SetCollisionResponseToChannel(ECC_Camera,ECR_Ignore);
+	StaticMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+	StaticMesh->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
 
    
 }
@@ -128,5 +130,4 @@ void ACPPInteractableObject::IdleMovement(float DeltaTime)
     SetActorScale3D(Size);
 }
 
-
-
+ 

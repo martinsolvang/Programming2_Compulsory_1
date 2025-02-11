@@ -6,7 +6,6 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "Interact_Interface.h"
-#include "ViewportInteractableInterface.h"
 #include "CPPCharacter.generated.h"
 
 UCLASS()

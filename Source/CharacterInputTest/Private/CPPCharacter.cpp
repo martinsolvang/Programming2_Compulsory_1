@@ -36,15 +36,7 @@ void ACPPCharacter::BeginPlay()
 	Super::BeginPlay();
 
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(InputMapping, 0);
-		}
-		
-	}
+	
 }
 
 // Called every frame
@@ -58,7 +50,15 @@ void ACPPCharacter::Tick(float DeltaTime)
 void ACPPCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
 
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(InputMapping, 0);
+		}
+
+	}
 	if (UEnhancedInputComponent* Input = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACPPCharacter::Move);
