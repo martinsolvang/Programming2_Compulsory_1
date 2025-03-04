@@ -22,7 +22,7 @@ class CHARACTERINPUTTEST_API IInteract_Interface
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interaction")
+	UFUNCTION(BlueprintNativeEvent, Category = "Interaction")
 	void OnInteract();
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 
