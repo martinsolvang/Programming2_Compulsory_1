@@ -67,7 +67,7 @@ void ACPPInteractableObject::OnInteract_Implementation()
 
 void ACPPInteractableObject::UpdateMovementAndRotation(float DeltaTime)
 {
-    ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    APawn* Player = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
     if (Player)
     {
         FVector PlayerForward = Player->GetActorForwardVector();
