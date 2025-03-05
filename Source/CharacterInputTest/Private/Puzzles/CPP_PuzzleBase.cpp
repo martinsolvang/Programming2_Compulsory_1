@@ -11,13 +11,14 @@ ACPP_PuzzleBase::ACPP_PuzzleBase()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SceneRoot = CreateDefaultSubobject<USceneComponent>("Scene Root");
-	SceneRoot->SetupAttachment(RootComponent);
+	RootComponent = SceneRoot;
+
 	
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("Static Mesh");
 	StaticMesh->SetupAttachment(SceneRoot);
 
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>("Collision Box");
-	CollisionBox->SetupAttachment(SceneRoot);
+	CollisionBox->SetupAttachment(StaticMesh);
 	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CollisionBox->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
 	bIsActive = true;

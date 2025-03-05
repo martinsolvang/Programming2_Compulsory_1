@@ -15,12 +15,13 @@ class CHARACTERINPUTTEST_API ACPP_PuzzleBase : public AActor, public IInteract_I
 {
 	GENERATED_BODY()
 
+protected:
 	USceneComponent* SceneRoot;
 	
-	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UPROPERTY(VisibleAnywhere,BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
 	UStaticMeshComponent* StaticMesh;
 
-	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
 	class UBoxComponent* CollisionBox;
 	
 public:	
