@@ -100,7 +100,7 @@ void ACPPSubmarineTest::InteractWithObject()
 		}
 	}
 	
-	 DrawDebugSphere(GetWorld(), Start, 250, 32, FColor::Red, false, 3.f, 0, 1);
+	 //DrawDebugSphere(GetWorld(), Start, 250, 32, FColor::Red, false, 3.f, 0, 1);
 	if (HitResult.GetActor())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *HitResult.GetActor()->GetName());

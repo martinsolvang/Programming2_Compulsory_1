@@ -7,6 +7,8 @@
 #include "Interact_Interface.h"
 #include "CPP_RotatingPuzzlePiece.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRotationChanged, ACPP_RotatingPuzzlePiece*, RotatedPiece);
+
 UCLASS()
 class CHARACTERINPUTTEST_API ACPP_RotatingPuzzlePiece : public AActor, public IInteract_Interface
 {
@@ -19,7 +21,25 @@ class CHARACTERINPUTTEST_API ACPP_RotatingPuzzlePiece : public AActor, public II
 
 	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
 	class UBoxComponent* CollisionBox;
-public:	
+	
+	bool bIsRotating = false;
+	float CurrentTime= 0.0f;
+	float RotationTime = 1.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Rotation")
+	float RotationSpeed = 10.0f;
+	
+	FRotator StartRotation;
+	FRotator TargetRotation;
+	
+public:
+	// This delegate will trigger when RotationPosition is updated
+	UPROPERTY(BlueprintAssignable, Category = "Puzzle Events")
+	FOnRotationChanged OnRotationChanged;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Position")
+	int32 RotationPosition = 0;
+	
 	// Sets default values for this actor's properties
 	ACPP_RotatingPuzzlePiece();
 
@@ -33,7 +53,7 @@ public:
 	
 	virtual void OnInteract_Implementation() override;
 
-	void Rotate();
+	void Rotate(float DeltaTime);
 	
 	
 
