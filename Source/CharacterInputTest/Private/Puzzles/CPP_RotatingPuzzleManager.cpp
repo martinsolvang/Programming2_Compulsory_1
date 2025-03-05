@@ -1,12 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "PuzzleManager.h"
+#include "Puzzles/CPP_RotatingPuzzleManager.h"
 
 
-void APuzzleManager::CheckPuzzleState()
+void ACPP_RotatingPuzzleManager::CheckPuzzleState()
 {
 	bool bIsSolved = true;
+
+	//Check if solution array is of same length as puzzlepieces
+	if (PuzzlePieces.Num() != PuzzlePiecesSolution.Num())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("APuzzleManager::BeginPlay - PuzzlePieces and PuzzlePiecesSolution have mismatched lengths!"));
+	}
+
 
 	// Check if puzzle pieces match the solution
 	for (int32 i = 0; i < PuzzlePieces.Num(); i++)
@@ -32,17 +39,20 @@ void APuzzleManager::CheckPuzzleState()
 
 }
 
-void APuzzleManager::OnPuzzlePieceRotated(ACPP_RotatingPuzzlePiece* RotatedPiece)
+void ACPP_RotatingPuzzleManager::OnPuzzlePieceRotated(ACPP_PuzzleBase* ChangedPiece)
 {
-	UE_LOG(LogTemp, Log, TEXT("Puzzle Piece Rotated: %s"), *RotatedPiece->GetName());
+	if (ACPP_RotatingPuzzlePiece* RotatingPiece = Cast<ACPP_RotatingPuzzlePiece>(ChangedPiece))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Puzzle Piece Rotated: %s"), *RotatingPiece->GetName());
+		// Call CheckPuzzleState whenever a piece's rotation changes
+		CheckPuzzleState();
+	}
 
-	// Call CheckPuzzleState whenever a piece's rotation changes
-	CheckPuzzleState();
 }
 
 
 // Sets default values
-APuzzleManager::APuzzleManager()
+ACPP_RotatingPuzzleManager::ACPP_RotatingPuzzleManager()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -50,23 +60,30 @@ APuzzleManager::APuzzleManager()
 }
 
 // Called when the game starts or when spawned
-void APuzzleManager::BeginPlay()
+void ACPP_RotatingPuzzleManager::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	//Checks that PuzzlePieces is populated
+	if (PuzzlePieces.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("APuzzleManager::BeginPlay - PuzzlePieces array is empty! Make sure to populate it in the editor."));
+	}
+
 	// Bind each puzzle piece's delegate to the CheckPuzzleState function
 	for (ACPP_RotatingPuzzlePiece* Piece : PuzzlePieces)
 	{
 		if (Piece)
 		{
 			// Bind CheckPuzzleState to the OnRotationChanged delegate
-			Piece->OnRotationChanged.AddDynamic(this, &APuzzleManager::OnPuzzlePieceRotated);
+			Piece->OnStateChanged.AddDynamic(this, &ACPP_RotatingPuzzleManager::OnPuzzlePieceRotated);
 		}
 	}
 
 }
 
 // Called every frame
-void APuzzleManager::Tick(float DeltaTime)
+void ACPP_RotatingPuzzleManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 

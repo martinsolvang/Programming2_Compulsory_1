@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "PuzzleManager.h"
+#include "Puzzles/CPP_RotatingPuzzleManager.h"
 #include "CPP_LockedDoor.generated.h"
 
 class APuzzleManager;
@@ -31,7 +31,7 @@ class CHARACTERINPUTTEST_API ACPP_LockedDoor : public AActor
 public:
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "References")
-	APuzzleManager* LinkedPuzzleManager; // Set this in the Editor for each door
+	ACPP_RotatingPuzzleManager* LinkedPuzzleManager; // Set this in the Editor for each door
 	
 	// Sets default values for this actor's properties
 	ACPP_LockedDoor();

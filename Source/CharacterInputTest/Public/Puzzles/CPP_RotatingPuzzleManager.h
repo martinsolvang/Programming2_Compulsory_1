@@ -3,35 +3,33 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CPP_PuzzleManagerBase.h"
 #include "CPP_RotatingPuzzlePiece.h"
 #include "GameFramework/Actor.h"
-#include "PuzzleManager.generated.h"
+#include "CPP_RotatingPuzzleManager.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPuzzleSolved);
+
 
 UCLASS()
-class CHARACTERINPUTTEST_API APuzzleManager : public AActor
+class CHARACTERINPUTTEST_API ACPP_RotatingPuzzleManager : public ACPP_PuzzleManagerBase
 {
 	GENERATED_BODY()
 	
 public:
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "PuzzleManager")
-	TArray<ACPP_RotatingPuzzlePiece*> PuzzlePieces;
 
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "PuzzleManager")
+	TArray<ACPP_RotatingPuzzlePiece*> PuzzlePieces; 
+	
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "PuzzleManager")
 	TArray<int32> PuzzlePiecesSolution;
 
-	UPROPERTY(BlueprintAssignable, Category = "Puzzle Events")
-	FOnPuzzleSolved OnPuzzleSolved;
-
-	
-	void CheckPuzzleState();
+	virtual void CheckPuzzleState() override;
 	
 	UFUNCTION()
-	void OnPuzzlePieceRotated(ACPP_RotatingPuzzlePiece* RotatedPiece);
+	void OnPuzzlePieceRotated(ACPP_PuzzleBase* ChangedPiece);
 
 	// Sets default values for this actor's properties
-	APuzzleManager();
+	ACPP_RotatingPuzzleManager();
 
 protected:
 	// Called when the game starts or when spawned

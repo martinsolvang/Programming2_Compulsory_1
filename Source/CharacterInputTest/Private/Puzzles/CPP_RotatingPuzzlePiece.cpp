@@ -1,26 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "CPP_RotatingPuzzlePiece.h"
-
-#include "Components/BoxComponent.h"
+#include "Puzzles/CPP_RotatingPuzzlePiece.h"
 
 // Sets default values
 ACPP_RotatingPuzzlePiece::ACPP_RotatingPuzzlePiece()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
-	SceneRoot = CreateDefaultSubobject<USceneComponent>("Scene Root");
-	SceneRoot->SetupAttachment(RootComponent);
-	
-	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("Static Mesh");
-	StaticMesh->SetupAttachment(SceneRoot);
-
-	CollisionBox = CreateDefaultSubobject<UBoxComponent>("Collision Box");
-	CollisionBox->SetupAttachment(SceneRoot);
-	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CollisionBox->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
+	bIsRotating = false;
+	CurrentTime= 0.0f;
+	RotationTime = 1.0f;
+	RotationPosition = 0;
+	RotationSpeed = 10.0f;
+	RotationMaxCount = 4;
 	
 }
 
@@ -35,6 +28,8 @@ void ACPP_RotatingPuzzlePiece::BeginPlay()
 void ACPP_RotatingPuzzlePiece::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Rotate the actor if Activate() is triggered
 	if (bIsRotating)
 	{
 		Rotate(DeltaTime);
@@ -43,16 +38,17 @@ void ACPP_RotatingPuzzlePiece::Tick(float DeltaTime)
 
 }
 
-void ACPP_RotatingPuzzlePiece::OnInteract_Implementation()
+void ACPP_RotatingPuzzlePiece::Activate()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "Rotated");
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Activate() called for RotatingPuzzlePiece"));
+	RotationAmount = 360/RotationMaxCount;
 	//Starts rotation function if it's not already rotating
 	if (!bIsRotating)
 	{
 		bIsRotating = true;
 		CurrentTime = 0.0f;
 		StartRotation = GetActorRotation();
-		TargetRotation = StartRotation + FRotator(0, 90, 0);
+		TargetRotation = StartRotation + FRotator(0, RotationAmount, 0);
 		
 	}
 }
@@ -71,12 +67,13 @@ void ACPP_RotatingPuzzlePiece::Rotate(float DeltaTime)
 		bIsRotating = false;
 		SetActorRotation(TargetRotation); // Ensure exact match
 		RotationPosition++;
-		if (RotationPosition > 3)
+		if (RotationPosition > RotationMaxCount-1)
 		{
 			RotationPosition = 0;
+			SetActorRotation(FRotator(0, 0, 0));
 		}
 
-		OnRotationChanged.Broadcast(this);
+		OnStateChanged.Broadcast(this);
 
 		
 	}
