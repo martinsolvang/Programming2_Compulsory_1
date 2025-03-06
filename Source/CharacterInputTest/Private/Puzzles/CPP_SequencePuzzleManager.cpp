@@ -3,9 +3,11 @@
 
 #include "Puzzles/CPP_SequencePuzzleManager.h"
 
+#include "Interfaces/IHttpResponse.h"
+
 ACPP_SequencePuzzleManager::ACPP_SequencePuzzleManager()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 }
 
 void ACPP_SequencePuzzleManager::BeginPlay()
@@ -20,12 +22,16 @@ void ACPP_SequencePuzzleManager::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("APuzzleManager::BeginPlay - PuzzlePieces or Solution array is empty! Make sure to populate it in the editor."));
 	}
 
+
+	//Bind PuzzlePieces to broadcast functionality
 	for (ACPP_SequencePuzzlePiece* Piece : PuzzlePieces)
 	{
 		if (Piece)
 		{
-			Piece->OnStateChanged.AddDynamic(this, &ACPP_SequencePuzzleManager::OnSequencePieceMoved);
+			Piece->OnStateChanged.RemoveDynamic(this, &ACPP_SequencePuzzleManager::OnSequencePieceMoved); // Remove old bindings
+			Piece->OnStateChanged.AddDynamic(this, &ACPP_SequencePuzzleManager::OnSequencePieceMoved);   // Add binding
 			UE_LOG(LogTemp, Warning, TEXT("Bound puzzle piece to delegate: %s"), *Piece->GetName());
+
 		}
 	}
 
@@ -43,14 +49,6 @@ void ACPP_SequencePuzzleManager::CheckPuzzleState()
 
 
 	UE_LOG(LogTemp, Warning, TEXT("CheckPuzzleState() called"));
-
-	// Check if the current sequence size matches the expected solution size
-	if (PuzzlePiecesCurrent.Num() != PuzzlePiecesSolution.Num())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Array sizes do not match! Resetting puzzle."));
-		ResetPuzzle();
-		return;
-	}
 	
 	bool bIsComplete = true;
 
@@ -86,30 +84,48 @@ void ACPP_SequencePuzzleManager::CheckPuzzleState()
 void ACPP_SequencePuzzleManager::ResetPuzzle()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Resetting puzzle!"));
+
+	PuzzlePiecesCurrent.Empty();
+	
+
 	for (ACPP_SequencePuzzlePiece* Piece : PuzzlePieces)
 	{
-		if (Piece && Piece->bIsMoving)
+		if (Piece)
 		{
 			Piece->ResetMovement();
+
 		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Could not reset Piece, was found moving: %d"),Piece->GetPuzzlePieceId());
+
+		}
+
 	}
-	PuzzlePiecesCurrent.Empty();
+	
+
 }
 
 //Updates puzzle and/or checks if puzzle is completed
 void ACPP_SequencePuzzleManager::OnSequencePieceMoved(ACPP_PuzzleBase* ChangedPiece)
 {
+	UE_LOG(LogTemp, Warning, TEXT("OnSequencePieceMoved called for: %s"), *ChangedPiece->GetName());
+
 	if (ACPP_SequencePuzzlePiece* MovedPiece = Cast<ACPP_SequencePuzzlePiece>(ChangedPiece))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Found Moved Piece ID:%s"), *MovedPiece->GetName());
+
 		// Ensure no duplicates
-		if (!PuzzlePiecesCurrent.Contains(MovedPiece->Idenfifier))
+		if (!PuzzlePiecesCurrent.Contains(MovedPiece->GetPuzzlePieceId()))
 		{
-			PuzzlePiecesCurrent.Add(MovedPiece->Idenfifier);
+			PuzzlePiecesCurrent.Add(MovedPiece->GetPuzzlePieceId());
+			UE_LOG(LogTemp, Warning, TEXT("Added piece to current sequence: %d"), MovedPiece->GetPuzzlePieceId());
 		}
 
 		// Make sure it's only checking when enough pieces have moved
 		if (PuzzlePiecesCurrent.Num() == PuzzlePiecesSolution.Num())
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Checking puzzle state!"));
 			CheckPuzzleState();
 		}
 	}

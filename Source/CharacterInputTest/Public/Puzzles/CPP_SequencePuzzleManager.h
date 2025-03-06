@@ -7,9 +7,7 @@
 #include "Puzzles/CPP_PuzzleManagerBase.h"
 #include "CPP_SequencePuzzleManager.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class CHARACTERINPUTTEST_API ACPP_SequencePuzzleManager : public ACPP_PuzzleManagerBase
 {

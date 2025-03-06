@@ -8,12 +8,27 @@ ACPP_SequencePuzzlePiece::ACPP_SequencePuzzlePiece()
 {
 	MovementSpeed = 100.0f;
 	bCanMove = false;
-	bIsMoving = false;
 	bIsActive = true;
 	bIsResetting = false;
 	PrimaryActorTick.bCanEverTick = true;
 
 }
+
+bool ACPP_SequencePuzzlePiece::GetbCanMove() const
+{
+	return bCanMove;
+}
+
+bool ACPP_SequencePuzzlePiece::GetbIsResetting() const
+{
+	return bIsResetting;
+}
+
+int32 ACPP_SequencePuzzlePiece::GetPuzzlePieceId() const
+{
+	return PuzzlePieceId;
+}
+
 
 void ACPP_SequencePuzzlePiece::BeginPlay()
 {
@@ -46,51 +61,58 @@ void ACPP_SequencePuzzlePiece::Activate()
 //Function to move the PuzzlePiece when activated
 void ACPP_SequencePuzzlePiece::Move(float DeltaTime)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Move function executing"));
 	FVector NewPosition = FMath::VInterpTo(GetActorLocation(), EndingLocation, DeltaTime, MovementSpeed);
-	
 	SetActorLocation(NewPosition);
-	
+        
 	if (FVector::Dist(NewPosition, EndingLocation) <= 0.01f)
 	{
 		SetActorLocation(EndingLocation);
-
-		if (!bIsResetting)
-		{
-			OnStateChanged.Broadcast(this);
-
-		}
-
 		bCanMove = false;
-		bIsResetting = false;
-		bIsMoving = false;
 		SetActorTickEnabled(false);
+		
+		if (bIsResetting)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Resetting piece %d completed"), PuzzlePieceId);
+            
+			bIsActive = true;        
+			bIsResetting = false;    
+		}
+		else
+		{
+			OnStateChanged.Broadcast(this);  
+			bIsActive = false;
+		}
+		
 	}
-	else
-	{
-		bIsMoving = true;  
-	}
-	
 }
+
 
 void ACPP_SequencePuzzlePiece::ResetMovement()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Reset puzzle position"));
+	//Check if a piece is moving and stop ResetMovement if so 
+	if (bCanMove)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ResetMovement skipped because piece is currently moving!"));
+		return;
+	}
 
-	bIsResetting = true;
-	bCanMove = true;
-	bIsActive = true;
+	UE_LOG(LogTemp, Warning, TEXT("ResetMovement started for piece %d"), PuzzlePieceId);
 
-	EndingLocation = StartingLocation;
+    bIsResetting = true;
+    bCanMove = true;
+    EndingLocation = StartingLocation;
+	
+    UE_LOG(LogTemp, Warning, TEXT("EndingLocation: %f"), EndingLocation.Z);
 
-
+	StaticMesh->SetMaterial(0, InactiveMaterial);
+	
 	SetActorTickEnabled(true);
 	
-	StaticMesh->SetMaterial(0,InactiveMaterial);
+	bIsActive = false;
 
 }
 
-// Called every frame
+
 void ACPP_SequencePuzzlePiece::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

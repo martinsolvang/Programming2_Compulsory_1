@@ -12,18 +12,16 @@ class CHARACTERINPUTTEST_API ACPP_SequencePuzzlePiece : public ACPP_PuzzleBase
 {
 	GENERATED_BODY()
 
-	bool bIsTriggered;
-
 	bool bCanMove;
-	bool bIsMoving;
-	
 	bool bIsResetting;
 	
 	FVector StartingLocation;
 	FVector EndingLocation;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = true ), Category = "Puzzle Piece")
+	int32 PuzzlePieceId;
+
 public:
-	
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Puzzle Piece")
 	UMaterialInterface* ActiveMaterial;
@@ -34,8 +32,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Puzzle Piece")
 	float MovementSpeed;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Puzzle Piece")
-	int32 Idenfifier;
 
 	ACPP_SequencePuzzlePiece();
 
@@ -44,6 +40,12 @@ public:
 	virtual void BeginPlay() override;
 	
 	virtual void Activate() override;
+
+	bool GetbCanMove() const;
+	
+	bool GetbIsResetting() const;
+	
+	int32 GetPuzzlePieceId() const;
 
 	void Move(float DeltaTime);
 
