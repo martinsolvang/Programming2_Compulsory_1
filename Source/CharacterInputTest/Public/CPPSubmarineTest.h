@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CPP_CharacterInteractionComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Interact_Interface.h"
 #include "InputActionValue.h"
@@ -31,9 +32,11 @@ class CHARACTERINPUTTEST_API ACPPSubmarineTest : public APawn, public IInteract_
 	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "True"))
 	UStaticMeshComponent* SubmarineMesh;			
 
-	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "True"))
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
 	UFloatingPawnMovement* MovementComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UCPP_CharacterInteractionComponent* CharacterInteractionComponent;
 
 public:
 	// Sets default values for this pawn's properties
@@ -90,22 +93,27 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Rotation")
 	float ReturnToCameraSpeed = 0.2f;
 	
-	// UPROPERTY(EditAnywhere, Category = "Movement")
-	// float MoveDeceleration = 50.0f;
-	//
-	// UPROPERTY(EditAnywhere, Category = "Movement")
-	// float MoveAcceleration = 50.0f;
-	//
-	// UPROPERTY(EditAnywhere, Category = "Movement")
-	// float MoveMaxSpeed = 500.0f;
-	//
-	 UPROPERTY(EditAnywhere, Category = "Movement")
-	 float ElevationSpeed = 0.4f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	float MoveDeceleration = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	float MoveAcceleration = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	float MoveMaxSpeed = 500.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	float ElevationSpeed = 0.4;
+
 
 	bool bIsFreeLooking = false;
+	
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void BeginOverlap_Implementation(AActor* CausingActor) override;
+	virtual void EndOverlap_Implementation(AActor* CausingActor) override;
 
 	
 	// Called to bind functionality to input
@@ -124,7 +132,11 @@ protected:
 	void Look(const FInputActionValue& InputValue);
 	void FreeLook();
 	void UnFreeLook();
+
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	float getMoveMaxSpeed();
 	
 	void RotateToCamera(float DeltaTime);
 
 };
+

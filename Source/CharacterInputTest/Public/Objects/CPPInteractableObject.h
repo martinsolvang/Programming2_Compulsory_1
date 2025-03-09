@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Interact_Interface.h"
 #include "GameFramework/Actor.h"
+#include "CPP_InteractableObjectComponent.h"
+#include "Components/SphereComponent.h"
 #include "CPPInteractableObject.generated.h"
 
 UCLASS()
@@ -23,13 +25,21 @@ class CHARACTERINPUTTEST_API ACPPInteractableObject : public AActor, public IInt
 	FVector StartLocation;
 	FVector TargetLocation;
 	
-
+	TWeakObjectPtr<APawn> PlayerTarget;
+	
 	FVector StartSize;
 	FVector TargetSize;
-
-	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "True"))
-	UStaticMeshComponent* StaticMesh;
 	
+protected:
+
+	UPROPERTY(VisibleAnywhere,BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UStaticMeshComponent* StaticMesh;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta  = (AllowPrivateAccess = "True"))
+	USphereComponent* CollisionSphere;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UCPP_InteractableObjectComponent* InteractableObjectComponent;
 public:	
 	// Sets default values for this actor's properties
 	ACPPInteractableObject();
@@ -41,7 +51,7 @@ protected:
 public:
 	virtual void Tick(float DeltaTime) override;
 
-	virtual void OnInteract_Implementation() override;
+	virtual void OnInteract_Implementation(AActor* CausingActor) override;
 
 	void UpdateMovementAndRotation(float DeltaTime);
 

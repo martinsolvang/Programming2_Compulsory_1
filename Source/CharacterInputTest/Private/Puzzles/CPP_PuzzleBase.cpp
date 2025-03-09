@@ -20,9 +20,12 @@ ACPP_PuzzleBase::ACPP_PuzzleBase()
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>("Collision Box");
 	CollisionBox->SetupAttachment(StaticMesh);
 	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CollisionBox->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_Pawn,ECR_Overlap);
 	bIsActive = true;
 
+	InteractableObjectComponent = CreateDefaultSubobject<UCPP_InteractableObjectComponent>(TEXT("InteractComponent"));   
+
+	
 }
 
 void ACPP_PuzzleBase::Activate()
@@ -33,7 +36,11 @@ void ACPP_PuzzleBase::Activate()
 void ACPP_PuzzleBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	//Passes the collision shape to the component for logic handeling of Begin and End Overlap
+	if (InteractableObjectComponent && CollisionBox)
+	{
+		InteractableObjectComponent->SetCollisionShape(CollisionBox);
+	}
 }
 
 // Called every frame
@@ -43,9 +50,8 @@ void ACPP_PuzzleBase::Tick(float DeltaTime)
 
 }
 
-void ACPP_PuzzleBase::OnInteract_Implementation()
+void ACPP_PuzzleBase::OnInteract_Implementation(AActor* CausingActor)
 {
-	IInteract_Interface::OnInteract_Implementation();
 	Activate();
 }
 

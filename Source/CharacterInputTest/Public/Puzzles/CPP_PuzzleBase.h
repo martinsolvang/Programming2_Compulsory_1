@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Interact_Interface.h"
 #include "GameFramework/Actor.h"
+#include "CPP_InteractableObjectComponent.h"
 #include "CPP_PuzzleBase.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStateChanged, ACPP_PuzzleBase*, ChangedPiece);
@@ -23,6 +24,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
 	class UBoxComponent* CollisionBox;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UCPP_InteractableObjectComponent* InteractableObjectComponent;
 	
 public:	
 	// Sets default values for this actor's properties
@@ -46,7 +50,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	virtual void OnInteract_Implementation() override;
+	virtual void OnInteract_Implementation(AActor* CausingActor) override;
+
 
 
 };

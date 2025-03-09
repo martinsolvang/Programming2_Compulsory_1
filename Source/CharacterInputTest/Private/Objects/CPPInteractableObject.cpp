@@ -11,7 +11,7 @@ ACPPInteractableObject::ACPPInteractableObject()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("Static Mesh");
 	StaticMesh->SetupAttachment(RootComponent);
 	//StaticMesh->SetCollisionResponseToChannel(ECC_Pawn,ECR_Ignore);
@@ -19,13 +19,27 @@ ACPPInteractableObject::ACPPInteractableObject()
 	StaticMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
 	StaticMesh->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
 
-   
+	CollisionSphere = CreateDefaultSubobject<USphereComponent>("Collision Sphere");
+	CollisionSphere->SetupAttachment(StaticMesh);
+	CollisionSphere->SetGenerateOverlapEvents(true);
+	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn,ECR_Overlap);
+
+
+	InteractableObjectComponent = CreateDefaultSubobject<UCPP_InteractableObjectComponent>(TEXT("InteractComponent"));
 }
 
 // Called when the game starts or when spawned
 void ACPPInteractableObject::BeginPlay()
 {
     Super::BeginPlay();
+
+	//Passes the collision shape to the component for logic handeling of Begin and End Overlap
+	if (InteractableObjectComponent && CollisionSphere)
+	{
+		InteractableObjectComponent->SetCollisionShape(CollisionSphere);
+	}
+
     StartLocation = GetActorLocation();
     StartSize = GetActorScale3D();
     TargetSize = FVector(0, 0, 0);
@@ -46,13 +60,26 @@ void ACPPInteractableObject::Tick(float DeltaTime)
 
 }
 
-void ACPPInteractableObject::OnInteract_Implementation()
+void ACPPInteractableObject::OnInteract_Implementation(AActor* CausingActor)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 3, FColor::Red, "Interacted With Object");
     PrimaryActorTick.bCanEverTick = true;
     StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     bShouldMove = true;
-    
+	
+	if ((PlayerTarget = Cast<APawn>(CausingActor)).IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player Target is valid"));
+		FVector PlayerForward = PlayerTarget->GetActorForwardVector();
+		// Set TargetLocation just once, relative to player position.
+		TargetLocation = PlayerTarget->GetActorLocation() + (PlayerForward * 50.0f);
+
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player Target is not valid"));
+	}
+	
     ElapsedTime = 0.0f;
     
 
@@ -67,13 +94,6 @@ void ACPPInteractableObject::OnInteract_Implementation()
 
 void ACPPInteractableObject::UpdateMovementAndRotation(float DeltaTime)
 {
-    APawn* Player = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-    if (Player)
-    {
-        FVector PlayerForward = Player->GetActorForwardVector();
-        TargetLocation = Player->GetActorLocation() + (PlayerForward * 50.0f); // Small offset
-    }
-
     // Increase time smoothly using DeltaTime
     ElapsedTime += DeltaTime;
 

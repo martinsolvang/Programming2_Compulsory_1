@@ -130,7 +130,7 @@ void ACPPCharacter::InteractWithObject()
 		if (IInteract_Interface* Interact_Interface = Cast<IInteract_Interface>(HitResult.GetActor()))
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Interacted with interactable object");
-			Interact_Interface->OnInteract_Implementation();
+			Interact_Interface->OnInteract_Implementation(this);
 		}
 	}
 	DrawDebugSphere(GetWorld(), Start, 350, 32, FColor::Red, false, 3.f, 0, 1);

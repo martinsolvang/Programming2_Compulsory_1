@@ -23,9 +23,15 @@ class CHARACTERINPUTTEST_API IInteract_Interface
 
 public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Interaction")
-	void OnInteract();
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+	void OnInteract(AActor* CausingActor);
 
+	UFUNCTION(BlueprintNativeEvent, Category = "Interaction")
+	void ToggleHighlight(bool bEnableHighlight);
 	
+	UFUNCTION(BlueprintNativeEvent, Category = "Interaction")
+	void BeginOverlap(AActor* CausingActor);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Interaction")
+	void EndOverlap(AActor* CausingActor);
 	
 };

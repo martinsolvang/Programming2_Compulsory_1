@@ -2,6 +2,7 @@
 
 
 #include "CPPSubmarineTest.h"
+
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "Camera/CameraComponent.h"
@@ -38,15 +39,13 @@ ACPPSubmarineTest::ACPPSubmarineTest()
 	Camera = CreateDefaultSubobject<UCameraComponent>("Camera");
 	Camera->SetupAttachment(SpringArm);
 
+	CharacterInteractionComponent = CreateDefaultSubobject<UCPP_CharacterInteractionComponent>(TEXT("CharacterInteractionComponent"));
+
 	bUseControllerRotationYaw = false;
 
 	MovementComponent = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("MovementComponent"));
 	
 	
-	// MovementComponent->Acceleration = MoveAcceleration;
-	// MovementComponent->Deceleration = MoveDeceleration;
-	// MovementComponent->TurningBoost = MoveTurningBoost;
-	// MovementComponent->MaxSpeed = MoveMaxSpeed;
 	
 
 }
@@ -54,10 +53,41 @@ ACPPSubmarineTest::ACPPSubmarineTest()
 void ACPPSubmarineTest::BeginPlay()
 {
 	Super::BeginPlay();
+	MovementComponent->Acceleration = MoveAcceleration;
+	MovementComponent->Deceleration = MoveDeceleration;
+	//MovementComponent->TurningBoost = MoveTurningBoost;
+	MovementComponent->MaxSpeed = MoveMaxSpeed;
 	
 }
 
-void ACPPSubmarineTest::Elevate(const FInputActionValue& InputValue)
+void ACPPSubmarineTest::BeginOverlap_Implementation(AActor* CausingActor)
+{
+	if (CharacterInteractionComponent)
+	{
+		CharacterInteractionComponent->OnBeginOverlap(CausingActor);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
+
+}
+
+void ACPPSubmarineTest::EndOverlap_Implementation(AActor* CausingActor)
+{
+	if (CharacterInteractionComponent)
+	{
+		CharacterInteractionComponent->OnEndOverlap(CausingActor);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
+
+}
+
+
+void ACPPSubmarineTest::Elevate(const FInputActionValue& InputValue) 
 {
 	FVector2D InputVector = InputValue.Get<FVector2D>();
 
@@ -79,36 +109,25 @@ void ACPPSubmarineTest::Elevate(const FInputActionValue& InputValue)
 
 
 
-void ACPPSubmarineTest::InteractWithObject()
+void ACPPSubmarineTest::InteractWithObject() 
 {
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Pressed E");
-	FVector Start = RootComponent->GetComponentLocation();
-	FVector End = Start;
 
-	FHitResult HitResult;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	if (GetWorld()->SweepSingleByChannel(HitResult,Start,End,FQuat::Identity,ECC_Visibility,FCollisionShape::MakeSphere(250),Params))
+	//Executes interact functionality inside component
+	if (CharacterInteractionComponent)
 	{
-		if (IInteract_Interface* Interact_Interface = Cast<IInteract_Interface>(HitResult.GetActor()))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Interacted with interactable object");
-			//Interact_Interface->OnInteract_Implementation();
-			Interact_Interface->Execute_OnInteract(HitResult.GetActor());
-			
-		}
+		CharacterInteractionComponent->OnInteract();
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
+
 	
-	 //DrawDebugSphere(GetWorld(), Start, 250, 32, FColor::Red, false, 3.f, 0, 1);
-	if (HitResult.GetActor())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *HitResult.GetActor()->GetName());
-	}
 
 }
 
-void ACPPSubmarineTest::Move(const FInputActionValue& InputValue)
+void ACPPSubmarineTest::Move(const FInputActionValue& InputValue) 
 {
 	FVector2D InputVector = InputValue.Get<FVector2D>();
 
@@ -203,6 +222,11 @@ void ACPPSubmarineTest::UnFreeLook()
 {
 	bIsFreeLooking =false;
 
+}
+
+float ACPPSubmarineTest::getMoveMaxSpeed()
+{
+	return MoveMaxSpeed;
 }
 
 void ACPPSubmarineTest::RotateToCamera(float DeltaTime)
