@@ -31,6 +31,8 @@ ACPPCharacter::ACPPCharacter()
 
 	GetCharacterMovement()->MaxWalkSpeed = 500.f;
 
+	CharacterInteractionComponent = CreateDefaultSubobject<UCPP_CharacterInteractionComponent>(TEXT("CharacterInteractionComponent"));
+
 
 }
 
@@ -48,6 +50,32 @@ void ACPPCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+void ACPPCharacter::BeginOverlap_Implementation(AActor* CausingActor)
+{
+	IInteract_Interface::BeginOverlap_Implementation(CausingActor);
+	if (CharacterInteractionComponent)
+	{
+		CharacterInteractionComponent->OnBeginOverlap(CausingActor);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
+}
+
+void ACPPCharacter::EndOverlap_Implementation(AActor* CausingActor)
+{
+	IInteract_Interface::EndOverlap_Implementation(CausingActor);
+	if (CharacterInteractionComponent)
+	{
+		CharacterInteractionComponent->OnEndOverlap(CausingActor);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
 }
 
 // Called to bind functionality to input
@@ -118,23 +146,16 @@ void ACPPCharacter::Jump()
 void ACPPCharacter::InteractWithObject()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Pressed E");
-	FVector Start = RootComponent->GetComponentLocation();
-	FVector End = Start;
 
-	FHitResult HitResult;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	if (GetWorld()->SweepSingleByChannel(HitResult,Start,End,FQuat::Identity,ECC_Visibility,FCollisionShape::MakeSphere(150),Params))
+	//Executes interact functionality inside component
+	if (CharacterInteractionComponent)
 	{
-		if (IInteract_Interface* Interact_Interface = Cast<IInteract_Interface>(HitResult.GetActor()))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Emerald, "Interacted with interactable object");
-			Interact_Interface->OnInteract_Implementation(this);
-		}
+		CharacterInteractionComponent->OnInteract();
 	}
-	DrawDebugSphere(GetWorld(), Start, 350, 32, FColor::Red, false, 3.f, 0, 1);
-		
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CharacterInteractionComponent is not valid! Check initialization."));
+	}
 }
 
 

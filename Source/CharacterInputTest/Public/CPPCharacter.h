@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "CPP_CharacterInteractionComponent.h"
 #include "InputActionValue.h"
 #include "Interact_Interface.h"
 #include "CPPCharacter.generated.h"
@@ -35,6 +36,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
 	class UInputAction* InteractAction;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"))
+	UCPP_CharacterInteractionComponent* CharacterInteractionComponent;
+
 public:
 	// Sets default values for this character's properties
 	ACPPCharacter();
@@ -46,6 +50,9 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void BeginOverlap_Implementation(AActor* CausingActor) override;
+	virtual void EndOverlap_Implementation(AActor* CausingActor) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

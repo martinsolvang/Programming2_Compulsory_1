@@ -45,9 +45,6 @@ ACPPSubmarineTest::ACPPSubmarineTest()
 
 	MovementComponent = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("MovementComponent"));
 	
-	
-	
-
 }
 
 void ACPPSubmarineTest::BeginPlay()
