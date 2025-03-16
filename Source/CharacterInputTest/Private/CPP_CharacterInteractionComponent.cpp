@@ -4,7 +4,7 @@
 #include "CPP_CharacterInteractionComponent.h"
 
 #include "CPP_InteractableObjectComponent.h"
-#include "VectorTypes.h"
+
 
 
 // Sets default values for this component's properties

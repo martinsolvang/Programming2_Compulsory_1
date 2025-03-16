@@ -3,8 +3,6 @@
 
 #include "Puzzles/CPP_SequencePuzzleManager.h"
 
-#include "Interfaces/IHttpResponse.h"
-
 ACPP_SequencePuzzleManager::ACPP_SequencePuzzleManager()
 {
 	PrimaryActorTick.bCanEverTick = false;
