@@ -37,7 +37,7 @@ void ACPP_BoidGridManager::InitializeGrid(float CellSize)
 					FMath::FloorToInt((z - GridOrigin.Z) / CellSize)
 				);
 
-				UCPP_BoidGridCell* NewCell = NewObject<UCPP_BoidGridCell>(this);
+				FCPP_BoidGridCell* NewCell = NewObject<FCPP_BoidGridCell>(this);
 
 				GridCells.Add(GridKey, NewCell);
 			}
@@ -81,7 +81,7 @@ void ACPP_BoidGridManager::RegisterBoid(ACPP_BoidActor* Boid)
 	
 	if (GridCells.Contains(GridKey))
 	{
-		UCPP_BoidGridCell* Cell = GridCells[GridKey];
+		FCPP_BoidGridCell* Cell = GridCells[GridKey];
 		if (!Cell->BoidInCell.Contains(Boid))
 		{
 			Cell->AddBoid(Boid);
@@ -114,7 +114,7 @@ TArray<ACPP_BoidActor*> ACPP_BoidGridManager::GetNeighbors(ACPP_BoidActor* Boid)
 				FIntVector NeighborKey = GridKey + FIntVector(x, y, z);
 				if (GridCells.Contains(NeighborKey))
 				{
-					UCPP_BoidGridCell* NeighborCell = GridCells[NeighborKey];
+					FCPP_BoidGridCell* NeighborCell = GridCells[NeighborKey];
 					Neighbors.Append(NeighborCell->GetBoids());
 				}
 			}

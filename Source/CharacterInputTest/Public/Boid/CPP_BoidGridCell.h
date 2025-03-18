@@ -3,19 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
-#include "CPP_BoidGridCell.generated.h"
+
 
 /**
  * 
  */
-UCLASS()
-class CHARACTERINPUTTEST_API UCPP_BoidGridCell : public UObject
+
+USTRUCT()
+struct FCPP_BoidGridCell
 {
 	GENERATED_BODY()
-
 public:
-
+	
 	UPROPERTY()
 	TArray<class ACPP_BoidActor*> BoidInCell;
 

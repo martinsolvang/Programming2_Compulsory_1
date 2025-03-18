@@ -33,7 +33,7 @@ public:
 	FVector RoomMax = FVector(500.0f, 500.0f, 500.0f);
 ;
 private:	
-	TMap<FIntVector, UCPP_BoidGridCell*> GridCells;
+	TMap<FIntVector, CPP_BoidGridCell*> GridCells;
 
 	TMap<ACPP_BoidActor*, FIntVector> BoidToGridKeyMap;
 

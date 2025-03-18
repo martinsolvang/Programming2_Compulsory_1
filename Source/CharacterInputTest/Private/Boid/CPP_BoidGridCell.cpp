@@ -3,7 +3,7 @@
 
 #include "Boid/CPP_BoidGridCell.h"
 
-void UCPP_BoidGridCell::AddBoid(class ACPP_BoidActor* Boid)
+void FCPP_BoidGridCell::AddBoid(class ACPP_BoidActor* Boid)
 {
 	if (Boid && !BoidInCell.Contains(Boid))
 	{
@@ -12,7 +12,7 @@ void UCPP_BoidGridCell::AddBoid(class ACPP_BoidActor* Boid)
 
 }
 
-void UCPP_BoidGridCell::RemoveBoid(class ACPP_BoidActor* Boid)
+void FCPP_BoidGridCell::RemoveBoid(class ACPP_BoidActor* Boid)
 {
 	if (Boid)
 	{
@@ -21,7 +21,7 @@ void UCPP_BoidGridCell::RemoveBoid(class ACPP_BoidActor* Boid)
 
 }
 
-TArray<ACPP_BoidActor*> UCPP_BoidGridCell::GetBoids() const
+TArray<ACPP_BoidActor*> FCPP_BoidGridCell::GetBoids() const
 {
 	return BoidInCell;
 }
