@@ -1,30 +1,29 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CPP_BoidGridCell.generated.h"
 
-
-/**
- * 
- */
-
-USTRUCT()
-struct FCPP_BoidGridCell
+UCLASS()
+class CHARACTERINPUTTEST_API UCPP_BoidGridCell : public UObject
 {
-	GENERATED_BODY()
-public:
+GENERATED_BODY()
 	
-	UPROPERTY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boid")
 	TArray<class ACPP_BoidActor*> BoidInCell;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boid")
 	bool bIsObstructed = false;
 
-	void AddBoid(class ACPP_BoidActor* Boid);
-
-	void RemoveBoid(class ACPP_BoidActor* Boid);
-
-	TArray<ACPP_BoidActor*> GetBoids() const;
+	UCPP_BoidGridCell();
 	
+	UFUNCTION(BlueprintCallable, Category = "Boid")
+	void AddBoid(ACPP_BoidActor* Boid);
+
+	UFUNCTION(BlueprintCallable, Category = "Boid")
+	void RemoveBoid(ACPP_BoidActor* Boid);
+
+	UFUNCTION(BlueprintCallable, Category = "Boid")
+	TArray<ACPP_BoidActor*> GetBoids() const;
+
 };

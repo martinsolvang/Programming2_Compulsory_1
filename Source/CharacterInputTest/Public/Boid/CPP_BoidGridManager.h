@@ -19,27 +19,40 @@ public:
 	void InitializeGrid(float CellSize);
 
 	void RegisterBoid(ACPP_BoidActor* Boid);
-
-	TArray<ACPP_BoidActor*> GetNeighbors(ACPP_BoidActor* Boid);
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	float GridCellSize = 100.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	FVector RoomMin = FVector(-500.0f, -500.0f, -500.0f);
-;
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	FVector RoomMax = FVector(500.0f, 500.0f, 500.0f);
-;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings")
+	int32 CalculatedGridCellCount;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category = "Grid Settings")
+	float TimerInterval = 0.1f;
 private:	
-	TMap<FIntVector, CPP_BoidGridCell*> GridCells;
+	TMap<FIntVector, UCPP_BoidGridCell*> GridCells;
 
 	TMap<ACPP_BoidActor*, FIntVector> BoidToGridKeyMap;
 
 	FVector GridOrigin;
 
+	FTimerHandle RunTimerHandle;
+
+	FVector ComputeBoidAlgorithm(ACPP_BoidActor* Boid, const TArray<ACPP_BoidActor*>& Neighbors);
+
+	void BatchProcessBoidAlgorithm();	
+
 	void DebugDrawGrid();
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+
+	virtual void BeginPlay() override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

@@ -1,27 +1,23 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Boid/CPP_BoidGridCell.h"
 
-void FCPP_BoidGridCell::AddBoid(class ACPP_BoidActor* Boid)
+UCPP_BoidGridCell::UCPP_BoidGridCell()
 {
-	if (Boid && !BoidInCell.Contains(Boid))
-	{
-		BoidInCell.Add(Boid);
-	}
+	bIsObstructed = false;
+}
+
+
+void UCPP_BoidGridCell::AddBoid(ACPP_BoidActor* Boid)
+{
+	BoidInCell.Add(Boid);
 
 }
 
-void FCPP_BoidGridCell::RemoveBoid(class ACPP_BoidActor* Boid)
+void UCPP_BoidGridCell::RemoveBoid(ACPP_BoidActor* Boid)
 {
-	if (Boid)
-	{
-		BoidInCell.Remove(Boid);
-	}
-
+	BoidInCell.Remove(Boid);
 }
 
-TArray<ACPP_BoidActor*> FCPP_BoidGridCell::GetBoids() const
+TArray<ACPP_BoidActor*> UCPP_BoidGridCell::GetBoids() const
 {
 	return BoidInCell;
 }
