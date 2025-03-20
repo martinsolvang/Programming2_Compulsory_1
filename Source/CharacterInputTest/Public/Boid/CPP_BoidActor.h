@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CPP_BoidDataAsset.h"
+#include "CPP_BoidGridManager.h"
 #include "GameFramework/Actor.h"
 #include "CPP_BoidActor.generated.h"
 
@@ -31,24 +32,43 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
 	float AlignmentFactor = 1;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
+	float SeparationDistance = 50;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
+	float AvoidanceFactor = 5;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
+	float MovementSpeed = 200.0f;
+
+	TArray<FVector> PrecomputedDirections;
+
+	UPROPERTY(EditAnywhere, Category = "Boid")
+	ACPP_BoidGridManager* GridManager;
+
+	bool ShouldPerformObstacleAvoidance();
+	void ScheduleObstacleAvoidance();
+
 	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Boid")
 	FVector CurrentVector;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
-	float GetSeparationDistance = 50;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Boid")
-	float AvoidanceFactor = 1;
-
-	float MovementSpeed = 150.0f;
 	
+	FVector NextVector;
+	FCriticalSection VectorLock;
+	bool bVectorBufferReady = false;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
-	void ObstacleAvoidance(float DeltaTime);
 
-	TSet<AActor*> OverlappingActors;
+	UPROPERTY()
+	FTimerHandle ObstacleAvoidanceTimerHandle;
+    
+	FVector PreviousLocation;
+    
+	// Last calculated avoidance direction
+	FVector CurrentAvoidanceDirection = FVector::ZeroVector;
+
+	void ObstacleAvoidance();
+
 
 public:	
 	// Called every frame

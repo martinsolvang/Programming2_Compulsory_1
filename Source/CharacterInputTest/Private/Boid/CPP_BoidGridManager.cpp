@@ -56,9 +56,10 @@ void ACPP_BoidGridManager::InitializeGrid(float CellSize)
 	}
 }
 
-
 void ACPP_BoidGridManager::RegisterBoid(ACPP_BoidActor* Boid)
 {
+	FScopeLock Lock(&GridLock);
+	
 	if (!Boid)
 	{
 		return;
@@ -89,6 +90,93 @@ void ACPP_BoidGridManager::RegisterBoid(ACPP_BoidActor* Boid)
 	}
 }
 
+bool ACPP_BoidGridManager::IsLocationNearObstacles(const FVector& Location, float CheckDistance = 100.0f)
+{
+	// Convert location to grid key
+	FIntVector GridKey(
+		FMath::FloorToInt((Location.X - GridOrigin.X) / GridCellSize),
+		FMath::FloorToInt((Location.Y - GridOrigin.Y) / GridCellSize),
+		FMath::FloorToInt((Location.Z - GridOrigin.Z) / GridCellSize)
+	);
+    
+	// Check the cell and neighboring cells
+	int32 CellRadius = FMath::CeilToInt(CheckDistance / GridCellSize);
+    
+	for (int32 x = -CellRadius; x <= CellRadius; x++)
+	{
+		for (int32 y = -CellRadius; y <= CellRadius; y++)
+		{
+			for (int32 z = -CellRadius; z <= CellRadius; z++)
+			{
+				FIntVector CheckKey = GridKey + FIntVector(x, y, z);
+                
+				// Check if this cell is obstructed
+				UCPP_BoidGridCell** Cell = GridCells.Find(CheckKey);
+				if (Cell && *Cell && (*Cell)->bIsObstructed)
+				{
+					return true;
+				}
+			}
+		}
+	}
+    
+	return false;
+}
+
+void ACPP_BoidGridManager::InitializeObstacleGrid()
+{
+	// For each grid cell, check if it contains obstacles
+	for (auto& Cell : GridCells)
+	{
+		FIntVector GridKey = Cell.Key;
+		UCPP_BoidGridCell* CurrentCell = Cell.Value;
+        
+		// Calculate cell center in world space
+		FVector CellCenter = GridOrigin + FVector(
+			(GridKey.X + 0.5) * GridCellSize,
+			(GridKey.Y + 0.5) * GridCellSize,
+			(GridKey.Z + 0.5) * GridCellSize);
+        
+		// Default to not obstructed
+		CurrentCell->bIsObstructed = false;
+        
+		// Define directions to cast rays
+		TArray<FVector> RayDirections = {
+			FVector(1, 0, 0), FVector(-1, 0, 0),
+			FVector(0, 1, 0), FVector(0, -1, 0),
+			FVector(0, 0, 1), FVector(0, 0, -1),
+			FVector(1, 1, 0).GetSafeNormal(), FVector(-1, 1, 0).GetSafeNormal(),
+			FVector(1, -1, 0).GetSafeNormal(), FVector(-1, -1, 0).GetSafeNormal()
+		};
+        
+		// Half size of grid cell (slightly smaller for conservative detection)
+		float RayLength = GridCellSize * 0.6f;
+        
+		// Perform ray casts
+		for (const FVector& Dir : RayDirections)
+		{
+			FHitResult Hit;
+			bool bHit = GetWorld()->LineTraceSingleByChannel(
+				Hit,
+				CellCenter,
+				CellCenter + Dir * RayLength,
+				ECC_WorldStatic
+			);
+            
+			if (bHit)
+			{
+				CurrentCell->bIsObstructed = true;
+				break;
+			}
+		}
+        
+		// Debug visualization (optional)
+		if (CurrentCell->bIsObstructed)
+		{
+			DrawDebugBox(GetWorld(), CellCenter, FVector(GridCellSize/2), FColor::Red, false, 5.0f);
+		}
+	}
+}
 
 FVector ACPP_BoidGridManager::ComputeBoidAlgorithm(ACPP_BoidActor* Boid, const TArray<ACPP_BoidActor*>& Neighbors)
 {
@@ -99,15 +187,16 @@ FVector ACPP_BoidGridManager::ComputeBoidAlgorithm(ACPP_BoidActor* Boid, const T
 
 	for (ACPP_BoidActor* Neighbor : Neighbors)
 	{
-		if (Neighbor == Boid) continue;
-
+		if (Neighbor == nullptr || Neighbor == Boid) continue;
+		if (!IsValid(Neighbor)) continue;
+		
 		FVector NeighborDistance = Neighbor->GetActorLocation() - Boid->GetActorLocation();
 		float Distance = NeighborDistance.Size();
 
 		Cohesion += Neighbor->GetActorLocation();
 		Alignment += Neighbor->CurrentVector;
 
-		if (Distance < Boid->GetSeparationDistance)
+		if (Distance < Boid->SeparationDistance)
 		{
 			Separation -= NeighborDistance.GetSafeNormal()/FMath::Max(Distance, 0.01f);
 		}
@@ -117,7 +206,7 @@ FVector ACPP_BoidGridManager::ComputeBoidAlgorithm(ACPP_BoidActor* Boid, const T
 
 	if (NeighborCount > 0)
 	{
-		Cohesion = (Cohesion / NeighborCount- Boid->GetActorLocation()).GetClampedToSize(0.0f, 1.0f);
+		Cohesion = (Cohesion / NeighborCount - Boid->GetActorLocation()).GetSafeNormal().GetClampedToSize(0.0f, 1.0f);
 		Alignment = (Alignment / NeighborCount).GetClampedToSize(0.0f, 1.0f);
 		Separation = Separation.GetClampedToSize(0.0f, 1.0f);
 	}
@@ -127,37 +216,72 @@ FVector ACPP_BoidGridManager::ComputeBoidAlgorithm(ACPP_BoidActor* Boid, const T
 
 void ACPP_BoidGridManager::BatchProcessBoidAlgorithm()
 {
+	// Create a local copy of all cell neighbors to avoid accessing GridCells during parallel operations
+	TMap<FIntVector, TArray<ACPP_BoidActor*>> CellNeighborsMap;
+	
+	 // Precompute neighbors for each cell to avoid grid access during parallel tasks
+    FScopeLock GridReadLock(&GridLock); // Lock while gathering neighbor data
+    for (auto& Cell : GridCells)
+    {
+        FIntVector CellKey = Cell.Key;
+        TArray<ACPP_BoidActor*> Neighbors;
+        
+        // Gather neighbors
+        for (int32 x = -1; x <= 1; x++)
+        {
+            for (int32 y = -1; y <= 1; y++)
+            {
+                for (int32 z = -1; z <= 1; z++)
+                {
+                    FIntVector NeighborKey = CellKey + FIntVector(x, y, z);
+                    if (GridCells.Contains(NeighborKey))
+                    {
+                        UCPP_BoidGridCell* NeighborCell = GridCells[NeighborKey];
+                        if (NeighborCell)
+                        {
+                            Neighbors.Append(NeighborCell->GetBoids());
+                        }
+                    }
+                }
+            }
+        }
+        
+        CellNeighborsMap.Add(CellKey, Neighbors);
+    }
+    // End of lock - we now have a thread-safe copy of all needed data
+    
+    // Now launch tasks with their own local copies of data
 	for (auto& Cell : GridCells)
 	{
-		 FIntVector CellKey = Cell.Key;
+		FIntVector CellKey = Cell.Key;
 		UCPP_BoidGridCell* CurrentCell = Cell.Value;
-
-		UE::Tasks::Launch(TEXT("GridCellBoidAlgorithmTask"),[this, CellKey, CurrentCell]()
+		TArray<ACPP_BoidActor*> CurrentCellBoids = CurrentCell->GetBoids(); // Get a copy
+    
+		// Find neighbors and make a COPY of the actual array (not just the pointer)
+		if (TArray<ACPP_BoidActor*>* NeighborsPtr = CellNeighborsMap.Find(CellKey))
 		{
-			TArray<ACPP_BoidActor*> Neighbors;
-			for (int32 x = -1; x <= 1; x++)
+			TArray<ACPP_BoidActor*> NeighborsCopy = *NeighborsPtr; // Create a copy
+        
+			if (CurrentCellBoids.Num() > 0)
 			{
-				for (int32 y = -1; y <= 1; y++)
+				UE::Tasks::Launch(TEXT("GridCellBoidAlgorithmTask"),
+					[this, CurrentCellBoids, NeighborsCopy]() // Capture the copy by value
 				{
-					for (int32 z = -1; z <= 1; z++)
+					for (ACPP_BoidActor* Boid : CurrentCellBoids)
 					{
-						FIntVector NeighborKey = CellKey + FIntVector(x, y, z);
-						if (GridCells.Contains(NeighborKey))
+						if (Boid && IsValid(Boid))
 						{
-							UCPP_BoidGridCell* NeighborCell = GridCells[NeighborKey];
-							Neighbors.Append(NeighborCell->GetBoids());
-						} 
+							FVector NewVector = ComputeBoidAlgorithm(Boid, NeighborsCopy);
+                        
+							// Thread-safe update using a lock
+							FScopeLock Lock(&Boid->VectorLock);
+							Boid->NextVector = NewVector;
+							Boid->bVectorBufferReady = true;
+						}
 					}
-				}
+				});
 			}
-
-			for (ACPP_BoidActor* Boid : CurrentCell->GetBoids())
-			{
-				FVector NewVector = ComputeBoidAlgorithm(Boid, Neighbors);
-				Boid->CurrentVector = NewVector;
-				RegisterBoid(Boid); 
-			}
-		});
+		}
 	}
 }
 
@@ -188,6 +312,7 @@ void ACPP_BoidGridManager::BeginPlay()
 	Super::BeginPlay();
 
 	InitializeGrid(GridCellSize);
+	InitializeObstacleGrid();
 	
 	for (auto& Cell : GridCells)
 	{
@@ -214,8 +339,3 @@ void ACPP_BoidGridManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorld()->GetTimerManager().ClearTimer(RunTimerHandle);
 
 }
-
-
-
-
-

@@ -20,6 +20,8 @@ public:
 
 	void RegisterBoid(ACPP_BoidActor* Boid);
 	
+	bool IsLocationNearObstacles(const FVector& Location, float CheckDistance);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	float GridCellSize = 100.f;
 
@@ -35,10 +37,18 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category = "Grid Settings")
 	float TimerInterval = 0.1f;
-private:	
+	
+private:
+
+	FCriticalSection GridLock;
+	
 	TMap<FIntVector, UCPP_BoidGridCell*> GridCells;
 
+	TMap<FIntVector, bool> ObstacleCells;
+
 	TMap<ACPP_BoidActor*, FIntVector> BoidToGridKeyMap;
+
+	void InitializeObstacleGrid();
 
 	FVector GridOrigin;
 

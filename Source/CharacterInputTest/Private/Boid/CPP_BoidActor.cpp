@@ -2,7 +2,9 @@
 
 #include "DistanceFieldAtlas.h"
 #include "Boid/CPP_BoidActor.h"
-
+#include "DrawDebugHelpers.h"
+#include "MaterialHLSLTree.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/MapErrors.h"
 
 // Sets default values
@@ -23,6 +25,48 @@ ACPP_BoidActor::ACPP_BoidActor()
 	
 }
 
+bool ACPP_BoidActor::ShouldPerformObstacleAvoidance()
+{
+	if (!GridManager)
+	{
+		// Find the grid manager if not set
+		return true;
+	}
+    
+	bool nearObstacleCell = GridManager->IsLocationNearObstacles(GetActorLocation(), 200.0f);
+	
+	return nearObstacleCell;
+}
+
+void ACPP_BoidActor::ScheduleObstacleAvoidance()
+{
+	// Only schedule obstacle avoidance if needed
+	if (ShouldPerformObstacleAvoidance())
+	{
+		// For fish near obstacles, check more frequently
+		float ObstacleCheckInterval = 0.1f;
+        
+		if (!GetWorldTimerManager().IsTimerActive(ObstacleAvoidanceTimerHandle))
+		{
+			GetWorldTimerManager().SetTimer(
+				ObstacleAvoidanceTimerHandle,
+				this,
+				&ACPP_BoidActor::ObstacleAvoidance,
+				ObstacleCheckInterval,
+				true
+			);
+		}
+	}
+	else
+	{
+		// For fish far from obstacles, we can disable obstacle avoidance
+		if (GetWorldTimerManager().IsTimerActive(ObstacleAvoidanceTimerHandle))
+		{
+			GetWorldTimerManager().ClearTimer(ObstacleAvoidanceTimerHandle);
+		}
+	}
+}
+
 // Called when the game starts or when spawned
 void ACPP_BoidActor::BeginPlay()
 {
@@ -34,123 +78,186 @@ void ACPP_BoidActor::BeginPlay()
 		return;
 	}
 
-	if (BoidData)
+	if (!GridManager)
 	{
-		//CurrentVector = CurrentVector*BoidData->MovementSpeed;
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACPP_BoidGridManager::StaticClass(), FoundActors);
+		if (FoundActors.Num() > 0)
+		{
+			GridManager = Cast<ACPP_BoidGridManager>(FoundActors[0]);
+		}
 	}
-
-	CurrentVector = GetActorForwardVector().GetSafeNormal()*MovementSpeed;
-}
-
-void ACPP_BoidActor::ObstacleAvoidance(float DeltaTime)
-{
-	// Distance for raycast
-    const float RaycastDistance = 300.0f;
-
-    FVector Start = GetActorLocation();
-    FVector ForwardVector = CurrentVector.GetSafeNormal();
-
-    // Directions: Forward, Right (45), Left (-45)
-    FVector ForwardRay = ForwardVector;
-    FVector RightRay = ForwardVector.RotateAngleAxis(45.0f, FVector::UpVector);
-    FVector LeftRay = ForwardVector.RotateAngleAxis(-45.0f, FVector::UpVector);
-
-    // Raycast results
-    FHitResult HitForward, HitRight, HitLeft;
-    float DistanceForward = RaycastDistance; // Default to max distance
-    float DistanceRight = RaycastDistance;
-    float DistanceLeft = RaycastDistance;
-
-    // Perform raycasts
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this); // Ignore self
-
-    // Forward raycast
-    GetWorld()->LineTraceSingleByChannel(HitForward, Start, Start + ForwardRay * RaycastDistance, ECC_WorldStatic, QueryParams);
-    if (HitForward.bBlockingHit)
-    {
-        DistanceForward = HitForward.Distance; // Get distance to obstacle
-    }
-
-    // Right raycast
-    GetWorld()->LineTraceSingleByChannel(HitRight, Start, Start + RightRay * RaycastDistance, ECC_WorldStatic, QueryParams);
-    if (HitRight.bBlockingHit)
-    {
-        DistanceRight = HitRight.Distance;
-    }
-
-    // Left raycast
-    GetWorld()->LineTraceSingleByChannel(HitLeft, Start, Start + LeftRay * RaycastDistance, ECC_WorldStatic, QueryParams);
-    if (HitLeft.bBlockingHit)
-    {
-        DistanceLeft = HitLeft.Distance;
-    }
-
-    // Debug raycasts
-    DrawDebugLine(GetWorld(), Start, Start + ForwardRay * RaycastDistance, FColor::Blue, false, 0.1f, 0, 1.0f); // Forward
-    DrawDebugLine(GetWorld(), Start, Start + RightRay * RaycastDistance, FColor::Red, false, 0.1f, 0, 1.0f);  // Right
-    DrawDebugLine(GetWorld(), Start, Start + LeftRay * RaycastDistance, FColor::Green, false, 0.1f, 0, 1.0f);  // Left
-
-    // Scoring for directions
-    float ForwardScore = DistanceForward; // Favor longer distance
-    float RightScore = DistanceRight;
-    float LeftScore = DistanceLeft;
-
-    // Add bias to prioritize forward motion
-    ForwardScore += 50.0f; // Encourage forward movement
-
-    // Bonus for no-hit rays (completely open directions)
-    if (DistanceForward == RaycastDistance) { ForwardScore += 100.0f; }
-    if (DistanceRight == RaycastDistance) { RightScore += 100.0f; }
-    if (DistanceLeft == RaycastDistance) { LeftScore += 100.0f; }
-
-    // Penalize non-parallel movement (optional for "up/down control")
-    // if (bPenalizeVerticalMovement)
-    // {
-    //     // If the direction goes significantly up or down, penalize it.
-    //     if (RightRay.Z > 0.5f || RightRay.Z < -0.5f) RightScore -= 25.0f;
-    //     if (LeftRay.Z > 0.5f || LeftRay.Z < -0.5f) LeftScore -= 25.0f;
-    // }
-
-    // Determine the best direction
-    FVector BestDirection = ForwardRay;
-    float MaxScore = ForwardScore;
-
-    if (RightScore > MaxScore)
-    {
-        BestDirection = RightRay;
-        MaxScore = RightScore;
-    }
-    if (LeftScore > MaxScore)
-    {
-        BestDirection = LeftRay;
-        MaxScore = LeftScore;
-    }
-
-    // Adjust current vector using the best direction
-    CurrentVector += BestDirection * AvoidanceFactor;
-
-
-}
+    
+	// Register with grid manager
+	if (GridManager)
+	{
+		GridManager->RegisterBoid(this);
+	}
+    
+	PreviousLocation = GetActorLocation();
+    
+	// Set up timer for obstacle avoidance
+	// GetWorld()->GetTimerManager().SetTimer(
+	// 	ObstacleAvoidanceTimerHandle,
+	// 	this,
+	// 	&ACPP_BoidActor::ObstacleAvoidance,
+	// 	ObstacleAvoidanceInterval,
+	// 	true
+	// );
 	
+	CurrentVector = GetActorForwardVector().GetSafeNormal()*MovementSpeed;
+	//CurrentVector = FVector::ZeroVector;
+}
 
+void ACPP_BoidActor::ObstacleAvoidance()
+{
+    const float RaycastDistance = 200.0f;
+    const float EmergencyDistance = 50.0f;
+    float DeltaTime = GetWorld()->GetDeltaSeconds();
+    
+    FVector CurrentLocation = GetActorLocation();
+    FVector CurrentDirection = CurrentVector.GetSafeNormal();
+    
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+    
+    // 5 rays: forward, left, right, up, down
+    FVector Directions[5];
+    Directions[0] = CurrentDirection;
+    
+    // Horizontal rays
+    FVector RightVector = FVector::CrossProduct(CurrentDirection, FVector::UpVector).GetSafeNormal();
+    Directions[1] = (CurrentDirection + RightVector * 0.5f).GetSafeNormal();
+    Directions[2] = (CurrentDirection - RightVector * 0.5f).GetSafeNormal();
+    
+    // Vertical rays
+    FVector UpVector = FVector::CrossProduct(RightVector, CurrentDirection).GetSafeNormal();
+    Directions[3] = (CurrentDirection + UpVector * 0.5f).GetSafeNormal();
+    Directions[4] = (CurrentDirection - UpVector * 0.5f).GetSafeNormal();
+    
+    bool bNeedsAvoidance = false;
+    FVector AvoidanceVector = FVector::ZeroVector;
+    float ClosestHitDistance = RaycastDistance;
+    
+    for (int32 i = 0; i < 5; i++)
+    {
+        FHitResult Hit;
+        bool bHit = GetWorld()->LineTraceSingleByChannel(
+            Hit,
+            CurrentLocation,
+            CurrentLocation + Directions[i] * RaycastDistance,
+            ECC_WorldStatic,
+            QueryParams
+        );
+        
+        if (bHit)
+        {
+            bNeedsAvoidance = true;
+            
+            // Progressive weight - more influence as we get closer
+            float AvoidWeight = 1.0f - (Hit.Distance / RaycastDistance);
+            
+            // Forward ray gets more weight
+            if (i == 0) AvoidWeight *= 1.3f;
+            
+            AvoidanceVector += Hit.Normal * AvoidWeight;
+            
+            if (Hit.Distance < ClosestHitDistance)
+            {
+                ClosestHitDistance = Hit.Distance;
+            }
+        }
+    }
+    
+    if (bNeedsAvoidance && !AvoidanceVector.IsNearlyZero())
+    {
+        AvoidanceVector.Normalize();
+        
+        // Dynamic avoidance strength based on distance
+        float AvoidanceStrength = 1.0f;
+        if (ClosestHitDistance < EmergencyDistance)
+        {
+            // Scale up gradually as we get closer to emergency distance
+            float EmergencyFactor = 1.0f - (ClosestHitDistance / EmergencyDistance);
+            AvoidanceStrength = FMath::Lerp(1.0f, 2.5f, EmergencyFactor);
+        }
+        
+        // Blend factor increases gradually as we get closer
+        float BlendFactor = FMath::Clamp(1.0f - (ClosestHitDistance / RaycastDistance), 0.2f, 0.8f);
+        
+        FVector DesiredDirection = FMath::Lerp(
+            CurrentDirection,
+            AvoidanceVector,
+            BlendFactor * AvoidanceStrength
+        ).GetSafeNormal();
+        
+        // Calculate the force needed
+        FVector DesiredForce = (DesiredDirection * CurrentVector.Size()) - CurrentVector;
+        
+        // Apply smooth interpolation - more responsive than original but not instant
+        CurrentAvoidanceDirection = FMath::VInterpTo(
+            CurrentAvoidanceDirection,
+            DesiredForce,
+            DeltaTime,
+            // Adjust this value to control responsiveness
+            // Lower = smoother but slower, Higher = quicker but potentially jerky
+            3.0f 
+        );
+    }
+    else
+    {
+        // Gradually decrease avoidance when no obstacles
+        CurrentAvoidanceDirection = FMath::VInterpTo(
+            CurrentAvoidanceDirection,
+            FVector::ZeroVector,
+            DeltaTime,
+            2.0f
+        );
+    }
+}
 
 void ACPP_BoidActor::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
 	
-	ObstacleAvoidance(DeltaTime);
+	Super::Tick(DeltaTime);
 
-	if (!CurrentVector.IsNearlyZero())
-	{
-		CurrentVector = CurrentVector.GetSafeNormal() * MovementSpeed;
+	
+	FVector OldPosition = GetActorLocation();
+
+	
+	// Handle obstacle avoidance
+	ScheduleObstacleAvoidance();
+
+	FScopeLock Lock(&VectorLock);
+	if (bVectorBufferReady) {
+		CurrentVector = NextVector;
+		bVectorBufferReady = false;
 	}
 	
+	if (!CurrentAvoidanceDirection.IsNearlyZero())
+	{
+		// Apply avoidance with DeltaTime to make it framerate independent
+		CurrentVector += CurrentAvoidanceDirection * DeltaTime * AvoidanceFactor;
+    
+		// Maintain max speed
+		CurrentVector = CurrentVector.GetClampedToMaxSize(MovementSpeed);
+	}
+    
+	// Apply the movement vector
 	FVector NewLocation = GetActorLocation() + CurrentVector * DeltaTime;
+    
 	SetActorLocation(NewLocation);
-	SetActorRotation(CurrentVector.Rotation());
-	FVector DebugEnd = GetActorLocation() + (CurrentVector * 100); // Scale the vector
-	//DrawDebugLine(GetWorld(), GetActorLocation(), DebugEnd, FColor::Blue, false, 0.1f, 0, 2.0f);
-
+    
+	// Set rotation to face direction of travel
+	if (!CurrentVector.IsNearlyZero())
+	{
+		FRotator NewRotation = CurrentVector.Rotation();
+		SetActorRotation(NewRotation);
+	}
+	
+	if (GridManager && !OldPosition.Equals(GetActorLocation(), GridManager->GridCellSize * 0.5f))
+	{
+		GridManager->RegisterBoid(this);
+	}
+	
 }
-
