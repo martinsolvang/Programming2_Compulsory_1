@@ -395,6 +395,7 @@ void ACPP_BoidActor::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
     
     // Check for obstacles
+    //VOID METHOD IS CALLED IN TIMER FROM BEGINPLAY
     //CheckObstacles();
     
     // Keep within environment bounds if set
