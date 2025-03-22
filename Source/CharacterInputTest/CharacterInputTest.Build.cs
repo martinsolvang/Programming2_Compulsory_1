@@ -8,7 +8,7 @@ public class CharacterInputTest : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore","InterchangeCore","ToolMenus","ToolWidgets", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "GameplayTasks", "InputCore","InterchangeCore","ToolMenus","ToolWidgets", "EnhancedInput" });
 		PublicIncludePaths.AddRange(new string[] { "CharacterInputTest" } );
 
 		PrivateDependencyModuleNames.AddRange(new string[] {});

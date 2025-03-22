@@ -1,263 +1,414 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "DistanceFieldAtlas.h"
 #include "Boid/CPP_BoidActor.h"
 #include "DrawDebugHelpers.h"
-#include "MaterialHLSLTree.h"
-#include "Kismet/GameplayStatics.h"
-#include "Misc/MapErrors.h"
+#include "VectorUtil.h"
+#include "Kismet/KismetMathLibrary.h"
 
-// Sets default values
 ACPP_BoidActor::ACPP_BoidActor()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
-	CohesionFactor = 1;
-	SeparationFactor = 1;
-	AlignmentFactor = 1;
-	CurrentVector = FVector::ZeroVector;
-
-	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
-	StaticMeshComponent->SetupAttachment(RootComponent);
-	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
-}
-
-bool ACPP_BoidActor::ShouldPerformObstacleAvoidance()
-{
-	if (!GridManager)
-	{
-		// Find the grid manager if not set
-		return true;
-	}
+    PrimaryActorTick.bCanEverTick = true;
     
-	bool nearObstacleCell = GridManager->IsLocationNearObstacles(GetActorLocation(), 200.0f);
-	
-	return nearObstacleCell;
+    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+    FishMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FishMesh"));
+    FishMesh->SetupAttachment(RootComponent);
+    
+    FishMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    FishMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+    FishMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    
+    CurrentVector = FVector::ZeroVector;
+    CurrentAvoidanceDirection = FVector::ZeroVector;
+    RandomDir = FVector::ZeroVector;
+    
+    TimeSinceObstacleAvoidance = 0.0f;
+    TimeSinceDirectionChange = 0.0f;
+    FollowPlayerTimer = 0.0f;
+    
+    PlayerDistance = 1000000;
+    bShouldFollowPlayer = false;
+    MovementSpeedFactor = 1.0f;
 }
 
-void ACPP_BoidActor::ScheduleObstacleAvoidance()
-{
-	// Only schedule obstacle avoidance if needed
-	if (ShouldPerformObstacleAvoidance())
-	{
-		// For fish near obstacles, check more frequently
-		float ObstacleCheckInterval = 0.1f;
-        
-		if (!GetWorldTimerManager().IsTimerActive(ObstacleAvoidanceTimerHandle))
-		{
-			GetWorldTimerManager().SetTimer(
-				ObstacleAvoidanceTimerHandle,
-				this,
-				&ACPP_BoidActor::ObstacleAvoidance,
-				ObstacleCheckInterval,
-				true
-			);
-		}
-	}
-	else
-	{
-		// For fish far from obstacles, we can disable obstacle avoidance
-		if (GetWorldTimerManager().IsTimerActive(ObstacleAvoidanceTimerHandle))
-		{
-			GetWorldTimerManager().ClearTimer(ObstacleAvoidanceTimerHandle);
-		}
-	}
-}
-
-// Called when the game starts or when spawned
 void ACPP_BoidActor::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
+    
+    CurrentVector = GetActorForwardVector().GetSafeNormal() * MovementSpeed;
 
-	if (!StaticMeshComponent)
-	{
-		UE_LOG(LogTemp, Error, TEXT("StaticMeshComponent is not initialized for %s. Please initialize it."), *GetName());
-		return;
-	}
-
-	if (!GridManager)
-	{
-		TArray<AActor*> FoundActors;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACPP_BoidGridManager::StaticClass(), FoundActors);
-		if (FoundActors.Num() > 0)
-		{
-			GridManager = Cast<ACPP_BoidGridManager>(FoundActors[0]);
-		}
-	}
+    float RandomDelay = FMath::FRandRange(0.0f, 0.1f);
     
-	// Register with grid manager
-	if (GridManager)
-	{
-		GridManager->RegisterBoid(this);
-	}
-    
-	PreviousLocation = GetActorLocation();
-    
-	// Set up timer for obstacle avoidance
-	// GetWorld()->GetTimerManager().SetTimer(
-	// 	ObstacleAvoidanceTimerHandle,
-	// 	this,
-	// 	&ACPP_BoidActor::ObstacleAvoidance,
-	// 	ObstacleAvoidanceInterval,
-	// 	true
-	// );
-	
-	CurrentVector = GetActorForwardVector().GetSafeNormal()*MovementSpeed;
-	//CurrentVector = FVector::ZeroVector;
+    GetWorld()->GetTimerManager().SetTimer(
+         TimerHandle,
+         this,
+         &ACPP_BoidActor::CheckObstacles,
+         0.1f,
+         true,
+         RandomDelay
+     );
 }
 
-void ACPP_BoidActor::ObstacleAvoidance()
+void ACPP_BoidActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    const float RaycastDistance = 200.0f;
-    const float EmergencyDistance = 50.0f;
-    float DeltaTime = GetWorld()->GetDeltaSeconds();
-    
+    GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
+
+    Super::EndPlay(EndPlayReason);
+}
+
+void ACPP_BoidActor::CheckObstacles()
+{
+    const float RaycastDistance = 150.0f * (MovementSpeed / 100.0f) + 100; // Scale raycast distance with speed
     FVector CurrentLocation = GetActorLocation();
     FVector CurrentDirection = CurrentVector.GetSafeNormal();
     
+    // Setup collision query
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this);
     
-    // 5 rays: forward, left, right, up, down
-    FVector Directions[5];
-    Directions[0] = CurrentDirection;
+    // Define ray directions (forward + 4 angled rays)
+    TArray<FVector> Directions;
+    Directions.Add(CurrentDirection);
     
-    // Horizontal rays
+    // Add angled rays (forward-left, forward-right, forward-up, forward-down)
     FVector RightVector = FVector::CrossProduct(CurrentDirection, FVector::UpVector).GetSafeNormal();
-    Directions[1] = (CurrentDirection + RightVector * 0.5f).GetSafeNormal();
-    Directions[2] = (CurrentDirection - RightVector * 0.5f).GetSafeNormal();
-    
-    // Vertical rays
     FVector UpVector = FVector::CrossProduct(RightVector, CurrentDirection).GetSafeNormal();
-    Directions[3] = (CurrentDirection + UpVector * 0.5f).GetSafeNormal();
-    Directions[4] = (CurrentDirection - UpVector * 0.5f).GetSafeNormal();
     
-    bool bNeedsAvoidance = false;
+    Directions.Add((CurrentDirection + RightVector * VisionConeMultiplier).GetSafeNormal());
+    Directions.Add((CurrentDirection - RightVector * VisionConeMultiplier).GetSafeNormal());
+    Directions.Add((CurrentDirection + UpVector * VisionConeMultiplier).GetSafeNormal());
+    Directions.Add((CurrentDirection - UpVector * VisionConeMultiplier).GetSafeNormal());
+    
+    // Perform raycasts
     FVector AvoidanceVector = FVector::ZeroVector;
     float ClosestHitDistance = RaycastDistance;
+    bool bObstacleDetected = false;
     
-    for (int32 i = 0; i < 5; i++)
+    // Debug: Output to confirm this method is being called
+    UE_LOG(LogTemp, Display, TEXT("CheckObstacles running, bShowDebugRays = %s"), 
+           bShowDebugRays ? TEXT("true") : TEXT("false"));
+    
+    for (const FVector& Dir : Directions)
     {
         FHitResult Hit;
         bool bHit = GetWorld()->LineTraceSingleByChannel(
             Hit,
             CurrentLocation,
-            CurrentLocation + Directions[i] * RaycastDistance,
+            CurrentLocation + Dir.GetSafeNormal() * RaycastDistance,
             ECC_WorldStatic,
             QueryParams
         );
+
+        if (Hit.GetActor() && Hit.GetActor()->IsA(APawn::StaticClass()))
+        {
+            bShouldFollowPlayer = true;
+        }
         
         if (bHit)
         {
-            bNeedsAvoidance = true;
-            
-            // Progressive weight - more influence as we get closer
-            float AvoidWeight = 1.0f - (Hit.Distance / RaycastDistance);
-            
-            // Forward ray gets more weight
-            if (i == 0) AvoidWeight *= 1.3f;
-            
-            AvoidanceVector += Hit.Normal * AvoidWeight;
-            
+            TimeSinceObstacleAvoidance = 0.0f;
+            bObstacleDetected = true;
+            float Weight = 1.0f - (Hit.Distance / RaycastDistance);
+            AvoidanceVector += Hit.Normal * Weight;
+        
             if (Hit.Distance < ClosestHitDistance)
             {
                 ClosestHitDistance = Hit.Distance;
             }
+        
+            // Debug visualization - increased duration and thickness
+            if (bShowDebugRays)
+            {
+                DrawDebugLine(
+                    GetWorld(),
+                    CurrentLocation,
+                    Hit.Location,
+                    FColor::Red,
+                    false,       // persistent lines
+                    0.0f,        // lifetime (0 = single frame)
+                    0,           // depth priority
+                    3.0f         // increased thickness
+                );
+                
+                // Debug sphere at hit point for better visibility
+                DrawDebugSphere(
+                    GetWorld(),
+                    Hit.Location,
+                    5.0f,        // radius
+                    8,           // segments
+                    FColor::Red,
+                    false,
+                    0.0f
+                );
+                
+                // Log hit
+                UE_LOG(LogTemp, Display, TEXT("Hit detected! Distance: %.2f"), Hit.Distance);
+            }
+        }
+        else if (bShowDebugRays)
+        {
+            // Draw green rays for no hit - increased thickness
+            DrawDebugLine(
+                GetWorld(),
+                CurrentLocation,
+                CurrentLocation + Dir * RaycastDistance,
+                FColor::Green,
+                false, 
+                0.0f,      // lifetime (0 = single frame)
+                0, 
+                3.0f       // increased thickness
+            );
         }
     }
     
-    if (bNeedsAvoidance && !AvoidanceVector.IsNearlyZero())
+    // Calculate avoidance force
+    if (bObstacleDetected && !AvoidanceVector.IsNearlyZero())
     {
         AvoidanceVector.Normalize();
         
-        // Dynamic avoidance strength based on distance
-        float AvoidanceStrength = 1.0f;
-        if (ClosestHitDistance < EmergencyDistance)
-        {
-            // Scale up gradually as we get closer to emergency distance
-            float EmergencyFactor = 1.0f - (ClosestHitDistance / EmergencyDistance);
-            AvoidanceStrength = FMath::Lerp(1.0f, 2.5f, EmergencyFactor);
-        }
+        // Stronger avoidance as obstacles get closer
+        float AvoidanceStrength = FMath::Clamp(1.0f - (ClosestHitDistance / RaycastDistance), 0.2f, 1.0f) * 5.0f;
         
-        // Blend factor increases gradually as we get closer
-        float BlendFactor = FMath::Clamp(1.0f - (ClosestHitDistance / RaycastDistance), 0.2f, 0.8f);
-        
-        FVector DesiredDirection = FMath::Lerp(
-            CurrentDirection,
-            AvoidanceVector,
-            BlendFactor * AvoidanceStrength
-        ).GetSafeNormal();
-        
-        // Calculate the force needed
-        FVector DesiredForce = (DesiredDirection * CurrentVector.Size()) - CurrentVector;
-        
-        // Apply smooth interpolation - more responsive than original but not instant
+        // Smoothly update avoidance direction - faster response time
         CurrentAvoidanceDirection = FMath::VInterpTo(
             CurrentAvoidanceDirection,
-            DesiredForce,
-            DeltaTime,
-            // Adjust this value to control responsiveness
-            // Lower = smoother but slower, Higher = quicker but potentially jerky
-            3.0f 
+            AvoidanceVector * AvoidanceStrength,
+            GetWorld()->GetDeltaSeconds(),
+            5.0f  // Increased from 3.0 to 5.0 for faster response
         );
+        
+        if (bShowDebugRays)
+        {
+            // Visualize the avoidance direction
+            DrawDebugDirectionalArrow(
+                GetWorld(),
+                CurrentLocation,
+                CurrentLocation + CurrentAvoidanceDirection * 50.0f,
+                20.0f,  // arrow size
+                FColor::Yellow,
+                false,
+                0.0f,
+                0,
+                3.0f
+            );
+        }
     }
     else
     {
-        // Gradually decrease avoidance when no obstacles
+        // Gradually decay avoidance when no obstacles
         CurrentAvoidanceDirection = FMath::VInterpTo(
             CurrentAvoidanceDirection,
             FVector::ZeroVector,
-            DeltaTime,
+            GetWorld()->GetDeltaSeconds(),
             2.0f
         );
     }
 }
 
+void ACPP_BoidActor::MoveAndRotate(float DeltaTime)
+{
+    // Store current direction before applying forces
+    FVector MovementDirection = CurrentVector.GetSafeNormal();
+
+    // Follow player if true
+    if (bShouldFollowPlayer && bCanFollowPlayer)
+    {
+        FollowPlayerTimer += DeltaTime;
+        MovementSpeedFactor = 2.0f;
+
+        
+        APawn* PlayerPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
+        if (!PlayerPawn)
+        {
+            return; // Exit the function as we can't follow the player.
+        }
+
+        FVector PlayerLocation = PlayerPawn->GetActorLocation();
+        FVector PlayerDirection = (PlayerLocation - GetActorLocation()).GetSafeNormal();
+        
+        PlayerDistance = (PlayerLocation - GetActorLocation()).Size();
+        GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, FString::Printf(TEXT("Distance: %.2f"), PlayerDistance));
+        
+        MovementDirection = FMath::VInterpTo(
+            MovementDirection,
+            PlayerDirection.GetSafeNormal(),
+            DeltaTime,
+            7.0f
+        ).GetSafeNormal();
+
+        // If followtimer runs out stop following
+        if (FollowPlayerTimer > 20.0f)
+        {
+            MovementSpeedFactor = 1.0f;
+            bShouldFollowPlayer = false;
+            FollowPlayerTimer = 0.0f;
+        }
+    }
+    
+    // Apply obstacle avoidance as a steering force
+    if (!CurrentAvoidanceDirection.IsNearlyZero())
+    {
+        // Add avoidance force
+        MovementDirection = (MovementDirection + CurrentAvoidanceDirection * AvoidanceFactor * DeltaTime).GetSafeNormal();
+        
+        // Debug visualization of resulting direction
+        if (bShowDebugRays)
+        {
+            DrawDebugDirectionalArrow(
+                GetWorld(),
+                GetActorLocation(),
+                GetActorLocation() + MovementDirection * 100.0f,
+                20.0f,
+                FColor::Blue,
+                false,
+                0.0f,
+                0,
+                3.0f
+            );
+        }
+    }
+    
+    //Change direction if enough time has passed, with a slight randomization to waiting time
+    if (((FMath::FRand() * 10.0f) + 15 < TimeSinceDirectionChange || bIsChangingDirection) && !bShouldFollowPlayer) 
+    {
+        TimeSinceDirectionChange = 0.0f;
+        DirectionChangeTime += DeltaTime;
+        if (!bIsChangingDirection)
+        {
+            RandomDir = FVector(
+             FMath::FRand() * 2.0f - 1.0f,
+             FMath::FRand() * 2.0f - 1.0f,
+             (FMath::FRand() * 2.0f - 1.0f) * 0.3f // Less vertical movement
+         ).GetSafeNormal(); 
+        }
+        
+        bIsChangingDirection = true;
+        MovementDirection = FMath::VInterpTo(
+            MovementDirection,
+            RandomDir,
+            DeltaTime,
+            3.0f
+        ).GetSafeNormal(); 
+    }
+
+    //Levels fish to horizonline
+    if (TimeSinceObstacleAvoidance > 2.0f && !FMath::IsNearlyZero(CurrentVector.Z))
+    {
+        FVector ZCorrectedVector = FVector(MovementDirection.X, MovementDirection.Y, 0.0f).GetSafeNormal();
+        MovementDirection = FMath::VInterpTo(
+           MovementDirection,
+           ZCorrectedVector,
+           DeltaTime,
+           1.0f
+       ).GetSafeNormal();
+    }
+     
+    //Sets movement
+    if ((PlayerDistance < 500.0f) && bShouldFollowPlayer)
+    {
+        MovementSpeedFactor = FMath::GetMappedRangeValueClamped(
+        FVector2D(200.0f, 500.0f), // Input range: distance thresholds (clamped between 200 and 500)
+        FVector2D(0.0f, 1.0f),    // Output range: 0.0 speed factor (stop) at 200, full speed (1.0) at 500
+        PlayerDistance // Player's current distance evaluated within the range
+    );
+
+    }
+    CurrentVector = MovementDirection * MovementSpeed * MovementSpeedFactor;
+
+    // Apply movement
+    FVector NewLocation = GetActorLocation() + CurrentVector * DeltaTime;
+    SetActorLocation(NewLocation);
+    
+    // Update rotation to face movement direction
+    if (!CurrentVector.IsNearlyZero())
+    {
+        FRotator NewRotation = CurrentVector.Rotation();
+        SetActorRotation(FMath::RInterpTo(GetActorRotation(), NewRotation, DeltaTime, 5.0f));
+    }
+}
+
+//----NOT IN USE----
+void ACPP_BoidActor::KeepInBounds()
+{
+    // Only apply if boundary volume is set
+    if (!BoundaryVolume)
+        return;
+        
+    // Get boundary box extent and center
+    FVector BoxOrigin, BoxExtent;
+    BoundaryVolume->GetActorBounds(false, BoxOrigin, BoxExtent);
+    
+    // Calculate min and max bounds from the volume
+    FVector BoundsMin = BoxOrigin - BoxExtent;
+    FVector BoundsMax = BoxOrigin + BoxExtent;
+    
+    FVector CurrentLocation = GetActorLocation();
+    FVector TowardCenter = BoxOrigin - CurrentLocation;
+    bool bNeedsCorrection = false;
+    
+    // Check if fish is approaching environment boundaries
+    
+    // X-axis (forward/backward)
+    if (CurrentLocation.X < BoundsMin.X + BoundaryMargin && CurrentVector.X < 0)
+    {
+        // Instead of just flipping direction, steer toward center
+        CurrentVector.X += TowardCenter.X * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    else if (CurrentLocation.X > BoundsMax.X - BoundaryMargin && CurrentVector.X > 0)
+    {
+        CurrentVector.X += TowardCenter.X * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    
+    // Y-axis (left/right)
+    if (CurrentLocation.Y < BoundsMin.Y + BoundaryMargin && CurrentVector.Y < 0)
+    {
+        CurrentVector.Y += TowardCenter.Y * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    else if (CurrentLocation.Y > BoundsMax.Y - BoundaryMargin && CurrentVector.Y > 0)
+    {
+        CurrentVector.Y += TowardCenter.Y * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    
+    // Z-axis (up/down)
+    if (CurrentLocation.Z < BoundsMin.Z + BoundaryMargin && CurrentVector.Z < 0)
+    {
+        CurrentVector.Z += TowardCenter.Z * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    else if (CurrentLocation.Z > BoundsMax.Z - BoundaryMargin && CurrentVector.Z > 0)
+    {
+        CurrentVector.Z += TowardCenter.Z * BoundaryAvoidanceStrength * GetWorld()->GetDeltaSeconds();
+        bNeedsCorrection = true;
+    }
+    
+    // Normalize if we made changes
+    if (bNeedsCorrection)
+    {
+        CurrentVector.Normalize();
+        CurrentVector *= MovementSpeed;
+    }
+}
+
 void ACPP_BoidActor::Tick(float DeltaTime)
 {
-	
-	Super::Tick(DeltaTime);
+    Super::Tick(DeltaTime);
+    
+    // Check for obstacles
+    //CheckObstacles();
+    
+    // Keep within environment bounds if set
+    //KeepInBounds();
+    
+    // Move and rotate the fish
+    MoveAndRotate(DeltaTime);
 
-	
-	FVector OldPosition = GetActorLocation();
-
-	
-	// Handle obstacle avoidance
-	ScheduleObstacleAvoidance();
-
-	FScopeLock Lock(&VectorLock);
-	if (bVectorBufferReady) {
-		CurrentVector = NextVector;
-		bVectorBufferReady = false;
-	}
-	
-	if (!CurrentAvoidanceDirection.IsNearlyZero())
-	{
-		// Apply avoidance with DeltaTime to make it framerate independent
-		CurrentVector += CurrentAvoidanceDirection * DeltaTime * AvoidanceFactor;
-    
-		// Maintain max speed
-		CurrentVector = CurrentVector.GetClampedToMaxSize(MovementSpeed);
-	}
-    
-	// Apply the movement vector
-	FVector NewLocation = GetActorLocation() + CurrentVector * DeltaTime;
-    
-	SetActorLocation(NewLocation);
-    
-	// Set rotation to face direction of travel
-	if (!CurrentVector.IsNearlyZero())
-	{
-		FRotator NewRotation = CurrentVector.Rotation();
-		SetActorRotation(NewRotation);
-	}
-	
-	if (GridManager && !OldPosition.Equals(GetActorLocation(), GridManager->GridCellSize * 0.5f))
-	{
-		GridManager->RegisterBoid(this);
-	}
-	
+    // Update time counters
+    TimeSinceObstacleAvoidance += DeltaTime;
+    TimeSinceDirectionChange += DeltaTime;
+    if (DirectionChangeTime > 1.0f)
+    {
+        bIsChangingDirection = false;
+        DirectionChangeTime = 0.0f;
+    }
 }

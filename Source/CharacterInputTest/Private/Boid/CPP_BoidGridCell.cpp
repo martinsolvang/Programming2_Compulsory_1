@@ -17,7 +17,7 @@ void UCPP_BoidGridCell::RemoveBoid(ACPP_BoidActor* Boid)
 	BoidInCell.Remove(Boid);
 }
 
-TArray<ACPP_BoidActor*> UCPP_BoidGridCell::GetBoids() const
+TArray<TWeakObjectPtr<ACPP_BoidActor>> UCPP_BoidGridCell::GetBoids() const
 {
 	return BoidInCell;
 }
